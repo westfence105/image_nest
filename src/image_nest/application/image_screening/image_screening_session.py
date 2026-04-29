@@ -100,4 +100,4 @@ class ImageScreeningSession(QObject):
         num += 1
 
     # 移動を実行しパスを更新
-    self.image_files[self.cur] = Path(shutil.move(file, dest_dir))
+    self.image_files[self.cur] = Path(shutil.move(file, dest))

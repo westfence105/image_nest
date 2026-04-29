@@ -5,7 +5,9 @@ from PySide6.QtWidgets import QWidget, QStackedLayout, QLabel, QFileDialog, QSiz
 from PySide6.QtGui import QPixmap, QResizeEvent, QShowEvent, QKeyEvent
 
 from image_nest.application.image_screening.image_screening_session import ImageScreeningSession
+from image_nest.application.settings.app_settings import AppSettings
 from image_nest.application.settings.settings_repository import SettingsRepository
+from image_nest.presentation.settings_dialog import SettingsDialog
 
 class ImageScreeningPage(QWidget):
   def __init__(self):
@@ -37,16 +39,23 @@ class ImageScreeningPage(QWidget):
   def showEvent(self, event: QShowEvent) -> None:
     super().showEvent(event)
 
-    if self.session.getFileCount() == 0:
-      QTimer.singleShot(0, self.openInputDialog)
+    QTimer.singleShot(0, self.start)
   
-  def openInputDialog(self):
-    app_settings = SettingsRepository.load()
-    SettingsRepository.save(app_settings)
+  def start(self):
+    if self.session.getFileCount() == 0:
+      app_settings: AppSettings = SettingsRepository.load()
+      
+      if app_settings.library_dir.exists() and app_settings.hold_dir.exists():
+        input_dir = QFileDialog.getExistingDirectory(self)
+        if input_dir:
+          self.session.start(Path(input_dir), app_settings=app_settings)
+      else:
+        self.showSettingsDialog()
 
-    input_dir = QFileDialog.getExistingDirectory(self)
-    if input_dir is not None:
-      self.session.start(Path(input_dir), app_settings=app_settings)
+  def showSettingsDialog(self):
+    settings_dialog = SettingsDialog(self)
+    settings_dialog.accepted.connect(self.start)
+    settings_dialog.show()
 
   def showImage(self, path: Path, index):
     self.pixmap = QPixmap(str(path))
@@ -79,11 +88,17 @@ class ImageScreeningPage(QWidget):
     if event.isAutoRepeat():
       return
     
-    if event.key() == Qt.Key_Right:
-      self.session.accept()
-    elif event.key() == Qt.Key_Up:
-      self.session.hold()
-    elif event.key() == Qt.Key_Down:
-      self.session.reject()
-    elif event.key() == Qt.Key_Left:
-      self.session.previous()
+    if event.modifiers() == Qt.ControlModifier:
+      if event.key() == Qt.Key_F:
+        self.start()
+      elif event.key() == Qt.Key_Period:
+        self.showSettingsDialog()
+    else:
+      if event.key() == Qt.Key_Right:
+        self.session.accept()
+      elif event.key() == Qt.Key_Up:
+        self.session.hold()
+      elif event.key() == Qt.Key_Down:
+        self.session.reject()
+      elif event.key() == Qt.Key_Left:
+        self.session.previous()
